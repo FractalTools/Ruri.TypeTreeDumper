@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      net8.0, not net10.0: verified empirically (isolated test DLL, both a bare-minimum
+      DllMain and a diagnostic one) that on this machine's net10.0 NativeAOT runtime
+      (ilcompiler 10.0.9), a custom-exported DllMain deadlocks LoadLibrary even with the
+      officially-recommended-safe pattern (nothing but an immediate P/Invoke CreateThread
+      call). The identical pattern on net8.0 returns from LoadLibrary in ~70ms and the
+      worker thread runs correctly. This is a net10.0-specific NativeAOT regression, not a
+      fundamental limitation of the DllMain-export approach itself.
+    -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <PublishAot>true</PublishAot>
+    <AssemblyName>Ruri.TypeTreeDumper</AssemblyName>
+    <RootNamespace>Ruri.TypeTreeDumper</RootNamespace>
+
+    <!--
+      A live-process thread dump caught the actual hang: allocation pressure triggered a
+      GC, which called GCToEEInterface::CreateThread to spin up its background/concurrent
+      collector thread, and that CreateThread call never returned (WaitForMultipleObjectsEx
+      stuck indefinitely) - specific to running as a thread injected into an already-huge,
+      heavily multi-threaded host process (the actual game, not this DLL's own code, was
+      confirmed uninvolved: the identical allocation pattern with the identical real data
+      ran in milliseconds in an isolated test process). Disabling server/concurrent GC
+      means the collector never tries to create its own background thread in the first
+      place, so this code path can't be hit at all.
+    -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <!--
+    NativeAOT's own SetupOSSpecificProps target unconditionally adds dllmain.obj to the
+    link when NativeLib is set, which exports a DllMain symbol - it is a one-line stub
+    (mov eax,1; ret; confirmed via dumpbin /disasm, no other symbol references) that does
+    no runtime bootstrap, existing solely to satisfy the linker's need for a DLL entry
+    point. It hard-conflicts (LNK2005) with our own exported DllMain
+    ([UnmanagedCallersOnly(EntryPoint="DllMain")] in EntryPoint.cs), so it is removed here;
+    nothing is lost since it never did anything to begin with.
+
+    Removing it from @(NativeLibrary) itself is too late: SetupOSSpecificProps (in
+    Microsoft.NETCore.Native.Windows.targets) both adds it to NativeLibrary AND converts
+    NativeLibrary into @(LinkerArg) (Include="@(NativeLibrary->'&quot;%(Identity)&quot;')")
+    within that same target body, so by the time any AfterTargets hook on
+    SetupOSSpecificProps runs, the conversion has already happened - removing from
+    NativeLibrary at that point no longer affects the LinkerArg copy that actually reaches
+    the linker. Removing the corresponding entry from LinkerArg instead works because that
+    item is what LinkNative (a separate, later target) actually consumes.
+  -->
+  <Target Name="RemoveStubDllMain" AfterTargets="SetupOSSpecificProps">
+    <ItemGroup>
+      <LinkerArg Remove="@(LinkerArg)" Condition="$([System.String]::Copy('%(Identity)').Contains('dllmain.obj'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>

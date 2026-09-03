@@ -120,8 +120,6 @@ internal sealed class TypeTreeNodeUnity2019_1(RawNode2019_1 node, TypeTreeBase o
 // Source: UTTDumper/include/typetree.h:66-88 (ITypeTree).
 internal abstract class TypeTreeBase(CommonString commonString) : ITypeTree
 {
-    protected static readonly MemLabelId CtorMemLabel = new(0x53);
-
     public List<ITypeTreeNode> Nodes { get; protected set; } = new();
     public abstract nint Ptr { get; }
     public abstract DynamicArrayView StringBuffer { get; }
@@ -172,7 +170,7 @@ internal sealed unsafe class TypeTree5_3 : TypeTreeBase
     {
         _tree = (nint)NativeMemory.AllocZeroed(96);
         var ctor = (delegate* unmanaged<nint, MemLabelId, void>)ctorPtr;
-        ctor(_tree, CtorMemLabel);
+        ctor(_tree, MemLabelId.TypeTree);
     }
 
     public override nint Ptr => _tree;
@@ -200,7 +198,7 @@ internal sealed unsafe class TypeTree2019_1 : TypeTreeBase
     {
         _tree = (nint)NativeMemory.AllocZeroed(120);
         var ctor = (delegate* unmanaged<nint, MemLabelId, byte, void>)ctorPtr;
-        ctor(_tree, CtorMemLabel, 0);
+        ctor(_tree, MemLabelId.TypeTree, 0);
     }
 
     private nint Data => RawMemory.ReadPointer(_tree, 0);
@@ -227,7 +225,7 @@ internal sealed unsafe class TypeTree2019_3 : TypeTreeBase
     {
         _tree = (nint)NativeMemory.AllocZeroed(24);
         var ctor = (delegate* unmanaged<nint, MemLabelId, void>)ctorPtr;
-        ctor(_tree, CtorMemLabel);
+        ctor(_tree, MemLabelId.TypeTree);
     }
 
     private nint Data => RawMemory.ReadPointer(_tree, 0);

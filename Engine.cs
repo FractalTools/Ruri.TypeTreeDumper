@@ -277,7 +277,7 @@ internal sealed unsafe class Engine(string dllPath)
             {
                 Console.WriteLine("Scanning for type tree functions...");
 
-                TypeTreeFunctions fns = Scanner.FindTypeTreeFunctions(sections);
+                TypeTreeFunctions fns = TypeTreeLocator.Locate(sections, @base, rtti);
                 if (typeTree == 0 && fns.GetTypeTree != 0)
                 {
                     typeTree = fns.GetTypeTree;
@@ -291,9 +291,9 @@ internal sealed unsafe class Engine(string dllPath)
             }
 
             if (typeTree == 0)
-                throw new InvalidOperationException("type_tree not found (auto-scan failed), set [<game>].type_tree in config.json");
+                throw new InvalidOperationException("type_tree not found (auto-scan reported why above), set [<game>].type_tree in config.json");
             if (typeTreeCtor == 0 && Version < new UnityVersion(2022, 2, 0, 'f', 0))
-                throw new InvalidOperationException("type_tree_ctor not found (auto-scan failed), set [<game>].type_tree_ctor in config.json");
+                throw new InvalidOperationException("type_tree_ctor not found (auto-scan reported why above), set [<game>].type_tree_ctor in config.json");
 
             TypeTreeGenerator = new TypeTreeGenerator(typeTree, typeTreeCtor, CommonString, Version);
             ResolvedTypeTree = (ulong)(typeTree - @base);

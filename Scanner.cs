@@ -299,54 +299,6 @@ internal static unsafe class Scanner
         return 0;
     }
 
-    // Locate the TypeTree ctor + GetTypeTree by anchoring on the code reference to the
-    // "Source and Destination Types do not match" string, then taking the first two
-    // distinct direct-call targets after it (skipping the error logger, which is the
-    // call immediately followed by a jmp). x86-64 only.
-    public static TypeTreeFunctions FindTypeTreeFunctions(List<Section> sections)
-    {
-        var result = new TypeTreeFunctions();
-
-        nint stringPtr = FindString(sections, "Source and Destination Types do not match\0"u8);
-        if (stringPtr == 0) return result;
-
-        nint lea = FindLeaTo(sections, stringPtr);
-        if (lea == 0) return result;
-
-        byte* end = (byte*)lea + 0x400;
-
-        nint ctor = 0;
-        for (byte* pos = (byte*)lea; pos + 6 <= end;)
-        {
-            if (*pos != 0xE8)
-            {
-                pos++;
-                continue;
-            }
-
-            nint target = (nint)pos + 5 + ReadInt32((nint)pos, 1);
-            byte next = pos[5];
-            pos += 5;
-
-            if (next == 0xE9 || next == 0xEB) continue; // logger / tail jump
-            if (!InExecutable(sections, target)) continue; // stray 0xE8 byte
-
-            if (ctor == 0)
-            {
-                ctor = target;
-            }
-            else if (target != ctor)
-            {
-                result.Ctor = ctor;
-                result.GetTypeTree = target;
-                return result;
-            }
-        }
-
-        result.Ctor = ctor; // only the ctor resolved (unexpected)
-        return result;
-    }
-
     // Locate Object::Produce by anchoring on the code reference to "Failure to create
     // component of type '%s' (0x%08X)" (the error path taken when producing a component
     // fails), then scanning backward for the nearest preceding direct call. Deliberately

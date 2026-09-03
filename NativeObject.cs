@@ -6,6 +6,14 @@ namespace Ruri.TypeTreeDumper;
 internal readonly struct MemLabelId(int identifier)
 {
     public readonly int Identifier = identifier;
+
+    // MemLabelIdentifier values. The engine carries its own label-name table - an array of
+    // const char* indexed by the identifier - so these are not guesses: entry 0x38 reads
+    // "BaseObject" and entry 0x53 reads "TypeTree", confirmed by locating the "TypeTree"
+    // literal's slot in that table and calibrating the table base so that BaseObject lands
+    // on the identifier Object::Produce is known to be called with.
+    public static readonly MemLabelId BaseObject = new(0x38);
+    public static readonly MemLabelId TypeTree = new(0x53);
 }
 
 // Source: UTTDumper/include/native_object.h:9-13.
@@ -85,7 +93,6 @@ internal sealed unsafe class NativeObjectUnity5_0 : INativeObject
 // Source: UTTDumper/include/native_object.h:48-66, lib/native_object.cpp:29-60.
 internal sealed unsafe class NativeObject(nint ptr, UnityVersion version)
 {
-    private static readonly MemLabelId MemLabel = new(0x38);
     private static readonly UnityVersion V3_5 = new(3, 5, 0, 'f', 0);
     private static readonly UnityVersion V5_5 = new(5, 5, 0, 'f', 0);
     private static readonly UnityVersion V2017_2 = new(2017, 2, 0, 'f', 0);
@@ -105,17 +112,17 @@ internal sealed unsafe class NativeObject(nint ptr, UnityVersion version)
         else if (version < V5_5)
         {
             var produce = (delegate* unmanaged<uint, int, MemLabelId, CreationMode, nint>)ptr;
-            result = produce(rtti.TypeID, instanceId, MemLabel, creationMode);
+            result = produce(rtti.TypeID, instanceId, MemLabelId.BaseObject, creationMode);
         }
         else if (version < V2017_2)
         {
             var produce = (delegate* unmanaged<nint, int, MemLabelId, CreationMode, nint>)ptr;
-            result = produce(rtti.Ptr, instanceId, MemLabel, creationMode);
+            result = produce(rtti.Ptr, instanceId, MemLabelId.BaseObject, creationMode);
         }
         else if (version < V2023_1_0A2)
         {
             var produce = (delegate* unmanaged<nint, nint, int, MemLabelId, CreationMode, nint>)ptr;
-            result = produce(rtti.Ptr, rtti.Ptr, instanceId, MemLabel, creationMode);
+            result = produce(rtti.Ptr, rtti.Ptr, instanceId, MemLabelId.BaseObject, creationMode);
         }
         // >= 2023.1.0a2: no known signature. Source has no trailing else/throw here either
         // (native_object.cpp:29-51) - result silently stays null, ported as-is.
